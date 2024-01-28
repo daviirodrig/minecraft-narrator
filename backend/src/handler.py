@@ -4,9 +4,9 @@ import threading
 from loguru import logger
 
 from src.chatgpt import chat
-from src.config import global_config
+from src.config import GlobalConfig, global_config
 from src.cooldown import CooldownManager
-from src.models import Action, Config, IncomingEvent, OutgoingAction
+from src.models import Action, IncomingEvent, OutgoingAction
 from src.queue import Queue
 from src.tts import tts
 from src.websocket import ws
@@ -62,12 +62,11 @@ class EventHandler:
             },
         ).start()
 
-    def handle_config_event(self, req_config: Config):
+    def handle_config_event(self, req_config: GlobalConfig):
         logger.info("Updating configs received from client")
-        global_config.set_all(req_config)
+        global_config.update(**req_config.model_dump())
         chat.set_config(global_config)
         tts.set_config(global_config)
-        global_config.save()
 
 
 event_handler = EventHandler()

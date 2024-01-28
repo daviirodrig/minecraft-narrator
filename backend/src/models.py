@@ -29,22 +29,6 @@ class IncomingEvent(BaseModel):
     data: str
 
 
-class Config(BaseModel):
-    elevenlabs_api_key: str
-    elevenlabs_voice_id: str
-    elevenlabs_streaming: bool
-    openai_streaming: bool
-    openai_api_key: str
-    openai_base_url: str
-    openai_model: str
-    elevenlabs_buffer_size: int
-    chatgpt_buffer_size: int
-    cooldown_individual: int
-    cooldown_global: int
-    narrator_volume: int
-    tts: bool
-
-
 # ==== Outgoing ====
 class Action(StrEnum):
     IGNORE = "ignore"

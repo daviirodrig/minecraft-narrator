@@ -1,10 +1,8 @@
 import os
-from dataclasses import dataclass, fields
 
 from dotenv import load_dotenv
 from loguru import logger
-
-load_dotenv()
+from pydantic import BaseModel, Field
 
 
 def redact(name: str, value: str) -> str:
@@ -15,56 +13,53 @@ def redact(name: str, value: str) -> str:
         return value
 
 
-def env_or_default(name, default="") -> str:
-    if name in os.environ:
-        logger.info(f"Using env var {name}: {redact(name, os.environ[name])}")
-        return os.environ[name]
+class GlobalConfig(BaseModel):
+    cooldown_global: int = Field(default=30)
+    cooldown_individual: int = Field(default=5)
+    tts: bool = Field(default=True)
 
-    if default == "":
-        logger.error(f"Missing env var {name}, configure on mod configuration screen in minecraft")
-    else:
-        logger.info(f"Using default value for {name}: {default}")
-    return default
+    elevenlabs_buffer_size: int = Field(default=2048)
+    chatgpt_buffer_size: int = Field(default=10)
 
+    openai_streaming: bool = Field(default=True)
+    openai_api_key: str = Field(default="")
+    openai_base_url: str = Field(default="https://api.openai.com/v1")
+    openai_model: str = Field(default="gpt-4-turbo-preview")
 
-@dataclass
-class GlobalConfig:
-    cooldown_global: int = int(env_or_default("COOLDOWN_GLOBAL", "30"))
-    cooldown_individual: int = int(env_or_default("COOLDOWN_INDIVIDUAL", "5"))
-    tts: bool = env_or_default("TTS", "true").lower() == "true"
+    elevenlabs_streaming: bool = Field(default=True)
+    elevenlabs_api_key: str = Field(default="")
+    elevenlabs_voice_id: str = Field(default="")
 
-    elevenlabs_buffer_size: int = int(env_or_default("ELEVENLABS_BUFFER_SIZE", "2048"))
-    chatgpt_buffer_size: int = int(env_or_default("CHATGPT_BUFFER_SIZE", "10"))
+    narrator_volume: int = Field(default=100)
 
-    openai_streaming: bool = env_or_default("OPENAI_STREAMING", "false").lower() == "true"
-    openai_api_key: str = env_or_default("OPENAI_API_KEY")
-    openai_base_url: str = env_or_default("OPENAI_BASE_URL", "https://api.openai.com/v1")
-    openai_model: str = env_or_default("OPENAI_MODEL", "gpt-4-1106-preview")
-
-    elevenlabs_streaming: bool = env_or_default("ELEVENLABS_STREAMING", "false").lower() == "true"
-    elevenlabs_api_key: str = env_or_default("ELEVENLABS_API_KEY")
-    elevenlabs_voice_id: str = env_or_default("ELEVENLABS_VOICE_ID")
-
-    narrator_volume: int = int(env_or_default("NARRATOR_VOLUME", "100"))
-
-    def set_all(self, config):
-        attributes = [f.name for f in fields(self)]
-        for attribute in attributes:
-            value = getattr(config, attribute, None)
-            if value is not None and value != "":
-                setattr(self, attribute, value)
-            else:
-                logger.warning(f"Config value for {attribute} is empty, skipping")
+    @classmethod
+    def from_env(cls):
+        load_dotenv(".env", override=True)
+        logger.debug("Loading config from .env")
+        c = cls(**{f: os.getenv(f.upper()) for f in cls.model_fields})  # type: ignore
+        logger.debug(f"Loaded config: {c}")
+        return c
 
     def save(self):
         logger.debug("Saving config to .env")
         with open(".env", "w") as f:
-            attributes = [f.name for f in fields(self)]
+            attributes = [f for f in self.model_fields]
             for attribute in attributes:
                 value = getattr(self, attribute, None)
                 if value is not None:
                     f.write(f"{attribute.upper()}={value}\n")
         logger.info("Saved config to .env")
 
+    def update(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+        self.save()
 
-global_config = GlobalConfig()
+
+if os.path.isfile(".env"):
+    logger.debug("Loading config from .env")
+    global_config = GlobalConfig.from_env()
+else:
+    logger.debug("No .env file found, creating one")
+    global_config = GlobalConfig()
+    global_config.save()

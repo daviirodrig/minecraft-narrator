@@ -4,15 +4,16 @@ import sys
 
 import fastapi
 from loguru import logger
+from src.config import GlobalConfig
 
 from src.handler import event_handler
-from src.models import Config, Event, IncomingEvent
+from src.models import Event, IncomingEvent
 from src.websocket import ws
 
 
 # TODO: Add option to enable debug logs to stdout with backtrace and diagnose when developing
 logger.remove()  # Remove default logger
-logger.add(sys.stdout, level="INFO", backtrace=False, diagnose=False)
+logger.add(sys.stdout, level="DEBUG", backtrace=False, diagnose=False)
 logger.add("logs/{time}.log", rotation="1 day", level="DEBUG", compression="zip")
 
 
@@ -41,7 +42,7 @@ async def websocket_endpoint(websocket: fastapi.WebSocket):
 
             match incoming_event.event:
                 case Event.CONFIG:
-                    config: Config = json.loads(incoming_event.data, object_hook=lambda d: Config(**d))
+                    config: GlobalConfig = json.loads(incoming_event.data, object_hook=lambda d: GlobalConfig(**d))
                     event_handler.handle_config_event(config)
                 case _:
                     logger.info(f"Incoming event data: {incoming_event.data!r}")
