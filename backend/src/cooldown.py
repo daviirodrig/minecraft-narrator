@@ -1,12 +1,15 @@
 import time
-from loguru import logger
+from typing import Literal
 
 from src.models import Event
+
+CooldownType = Event | Literal["GLOBAL_COOLDOWN"]
+CooldownsDict = dict[CooldownType, float]
 
 
 class CooldownManager:
     def __init__(self):
-        self.cooldowns = {}
+        self.cooldowns: CooldownsDict = {}
         self.bypass_cooldowns: list[Event] = [
             Event.PLAYER_DEATH,
             Event.ADVANCEMENT,
@@ -14,35 +17,15 @@ class CooldownManager:
             Event.PLAYER_CHAT,
         ]
 
-    def add_cooldown(self, name, duration: int):
+    def add_cooldown(self, name: CooldownType, duration: int):
         self.cooldowns[name] = time.time() + duration
 
-    def is_on_cooldown(self, name) -> bool:
+    def is_on_cooldown(self, name: CooldownType) -> bool:
         return time.time() < self.cooldowns.get(name, 0)
 
-    def get_cooldown_remaining(self, name) -> int:
+    def get_cooldown_remaining(self, name: CooldownType) -> int:
         remaining = self.cooldowns.get(name, 0) - time.time()
-        return max(0, remaining)
+        return round(int(max(0, remaining)), 2)
 
-    def reset_cooldown(self, name):
+    def reset_cooldown(self, name: CooldownType):
         self.cooldowns[name] = 0
-
-    def check_all_cooldown(self, event: Event) -> bool:
-        """
-        Check all cooldowns and return True if any of them is active, False otherwise
-        """
-        # TODO: if is playing narration return True (hard cd)
-
-        if event in self.bypass_cooldowns:
-            logger.info(f"Bypassing cooldown for event: {event}")
-            return False
-
-        if self.is_on_cooldown("GLOBAL_COOLDOWN"):
-            logger.info(f"Global cooldown active, {self.get_cooldown_remaining('GLOBAL_COOLDOWN')} seconds remaining")
-            return True
-
-        if self.is_on_cooldown(event):
-            logger.info(f"Cooldown active for event: {event}, {self.get_cooldown_remaining(event)} seconds remaining")
-            return True
-
-        return False

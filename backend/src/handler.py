@@ -17,18 +17,32 @@ from src.utils import singleton
 class EventHandler:
     def __init__(self):
         self._cd_manager = CooldownManager()
-        self._queue = Queue(maxsize=8, join_duplicates=True)
+        self._queue: Queue[str] = Queue(maxsize=8, join_duplicates=True)
 
     def handle_cooldowns_and_queue(self, event: IncomingEvent) -> OutgoingAction:
+
+        if event.event not in self._cd_manager.bypass_cooldowns:
+
+            if self._cd_manager.is_on_cooldown(name=event.event):
+                logger.info(
+                    f"Cooldown active for event: {event.event}, {self._cd_manager.get_cooldown_remaining(event.event)} seconds remaining"
+                )
+                return OutgoingAction(
+                    action=Action.IGNORE,
+                    data=f"Cooldown Individual ativo. Q: {self._queue.all()}",
+                )
+
+            if self._cd_manager.is_on_cooldown("GLOBAL_COOLDOWN"):
+                self._queue.put(event.data)
+                logger.info(
+                    f"Global cooldown active, {self._cd_manager.get_cooldown_remaining('GLOBAL_COOLDOWN')} seconds remaining"
+                )
+                return OutgoingAction(
+                    action=Action.IGNORE,
+                    data=f"Cooldown Global ativo. Q: {self._queue.all()}",
+                )
+
         self._queue.put(event.data)
-
-        if self._cd_manager.check_all_cooldown(event.event):
-            logger.info("Ignoring event due to cooldown")
-            return OutgoingAction(
-                action=Action.IGNORE,
-                data="Aguardando cooldown",
-            )
-
         outgoing_action = OutgoingAction(
             action=Action.SEND_CHAT,
             data="\n".join(self._queue.all()),
